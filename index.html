@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Au secours du Robot - Accords CE1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Andika&family=Fredoka+One&display=swap');
+
+        body {
+            font-family: 'Andika', sans-serif;
+            overflow: hidden;
+            background: #f0f9ff;
+            touch-action: none;
+            user-select: none;
+            margin: 0;
+        }
+
+        /* --- STRUCTURE DES CALQUES --- */
+        #robotContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        
+        /* On baisse le z-index du canvas pour qu'il ne soit pas au-dessus de TOUT */
+        #drawingCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000; pointer-events: auto; }
+        #confettiCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1600; pointer-events: none; }
+        
+        .screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: none; z-index: 100;
+        }
+        .active-flex { display: flex !important; }
+        .active-block { display: block !important; }
+
+        /* Les écrans de superposition doivent être au-dessus du canvas de dessin */
+        #homeScreen { background: #f0f9ff; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+        #resultScreen { background: rgba(255,255,255,0.95); z-index: 2100; flex-direction: column; align-items: center; justify-content: center; }
+        #lessonScreen { background: #eff6ff; z-index: 2100; flex-direction: column; align-items: center; justify-content: center; }
+        #demoScreen { background: white; z-index: 2100; flex-direction: column; align-items: center; justify-content: center; }
+
+        /* --- BOUTONS (Z-INDEX MAXIMUM) --- */
+        .btn-ui { pointer-events: auto !important; position: relative; z-index: 3000 !important; }
+
+        .btn-main {
+            background: #3b82f6; color: white; padding: 15px 30px;
+            margin: 10px; border-radius: 20px; font-size: 1.3rem;
+            font-weight: bold; cursor: pointer; transition: transform 0.1s;
+            border: none; width: 300px; text-align: center;
+            box-shadow: 0 6px 0 #1d4ed8;
+        }
+        .btn-main:active { transform: translateY(4px); box-shadow: none; }
+        .btn-yellow { background: #f59e0b; box-shadow: 0 6px 0 #b45309; }
+        .btn-purple { background: #8b5cf6; box-shadow: 0 6px 0 #5b21b6; }
+
+        .sentence-container {
+            display: flex; align-items: baseline; justify-content: center;
+            gap: 1.5rem; position: absolute; top: 55%; left: 50%;
+            transform: translate(-50%, -50%); width: 95%; flex-wrap: wrap;
+            pointer-events: none; z-index: 50;
+        }
+        .word { font-size: 3rem; color: #1f2937; position: relative; line-height: 1.8; }
+        
+        .target-zone { position: relative; display: inline-block; padding: 0 5px; border-radius: 8px; }
+        .suffix-zone { min-width: 1ch; display: inline-block; text-align: center; margin-left: 1px; color: transparent; }
+        .suffix-helper { border-bottom: 3px dashed #94a3b8; }
+        .suffix-revealed { color: #16a34a !important; font-weight: bold; border-bottom: none !important; animation: pop 0.4s ease-out; }
+        .success-highlight { color: #16a34a !important; font-weight: bold; }
+
+        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+        .header-ui {
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding: 20px; display: flex; justify-content: space-between;
+            align-items: flex-start; pointer-events: none; z-index: 2000;
+        }
+
+        .instruction-container {
+            display: flex; flex-direction: column; align-items: center; 
+            max-width: 60%; background: rgba(255,255,255,0.9);
+            padding: 10px 20px; border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        
+        .btn-audio-small {
+            background: #fef08a; border: 2px solid #ca8a04; color: #854d0e;
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 3px 0 #ca8a04; margin-left: 10px;
+        }
+
+        .btn-home-icon {
+            background: white; padding: 15px; border-radius: 50%; 
+            border: 4px solid #e5e7eb; font-size: 2rem; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); cursor: pointer;
+        }
+
+        #nextBtn {
+            position: absolute; bottom: 30px; right: 30px;
+            background: #22c55e; color: white; font-weight: bold;
+            font-size: 1.8rem; padding: 15px 50px; border-radius: 50px;
+            cursor: pointer; display: none;
+            box-shadow: 0 6px 0 #15803d;
+            z-index: 3000;
+        }
+
+        #ghostHand {
+            position: absolute; width: 80px; height: 80px;
+            background: url('https://cdn-icons-png.flaticon.com/512/2087/2087740.png') no-repeat center;
+            background-size: contain; z-index: 2500; pointer-events: none;
+            display: none; filter: drop-shadow(5px 5px 5px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body>
+
+    <div id="robotContainer"></div>
+    <canvas id="confettiCanvas"></canvas>
+    <div id="ghostHand"></div>
+    <canvas id="drawingCanvas"></canvas>
+
+    <!-- ACCUEIL -->
+    <div id="homeScreen" class="screen active-flex">
+        <h1 class="text-6xl font-bold text-blue-600 mb-8" style="font-family: 'Fredoka One'; text-align: center;">Au secours du Robot !</h1>
+        
+        <div class="bg-white/90 p-6 rounded-3xl border-4 border-blue-200 shadow-lg mb-8 max-w-2xl relative w-11/12">
+            <p id="objectiveText" class="text-gray-700 text-xl text-center italic font-medium">
+                "Bip Bip ! Mes circuits fument ! J'ai fait plein de fautes. Peux-tu m'aider ? Relie les déterminants aux noms et entoure la fin des mots pour corriger l'orthographe !"
+            </p>
+            <div class="absolute -top-4 -right-4">
+                <button class="btn-audio-small btn-ui" style="width: 50px; height: 50px;" onclick="speakObjective()">🔊</button>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-center gap-3">
+            <button class="btn-main btn-purple btn-ui" onclick="showView('lessonScreen')">📖 Voir la Leçon</button>
+            <button class="btn-main btn-yellow btn-ui" onclick="startDemo()">❓ Comment jouer ?</button>
+            <div class="flex flex-wrap justify-center gap-2 mt-2">
+                <button class="btn-main w-auto px-6 py-3 btn-ui" onclick="startGame(1)">Niveau 1</button>
+                <button class="btn-main w-auto px-6 py-3 btn-ui" onclick="startGame(2)">Niveau 2</button>
+                <button class="btn-main w-auto px-6 py-3 btn-ui" onclick="startGame(3)">Niveau 3</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JEU -->
+    <div id="gameScreen" class="screen">
+        <div class="header-ui">
+            <div class="flex flex-col gap-2">
+                <div class="bg-blue-600 text-white px-4 py-1 rounded-xl font-bold shadow-md text-center">NIV <span id="lvlNumDisplay">1</span></div>
+                <div class="bg-white border-2 border-blue-600 text-blue-600 px-4 py-1 rounded-full font-bold shadow-md text-center">
+                    <span id="progressText">1/10</span>
+                </div>
+            </div>
+            
+            <div class="instruction-container">
+                <div class="text-[#ef4444] font-bold text-sm text-center mb-1">Aide le robot à corriger les fautes d'orthographe</div>
+                <div class="flex items-center gap-2">
+                    <div id="instruction" class="text-[#1e40af] text-xl font-bold text-center">Entoure les déterminants !</div>
+                    <button class="btn-audio-small btn-ui" onclick="speakInstruction()">🔊</button>
+                </div>
+            </div>
+
+            <button class="btn-home-icon btn-ui" onclick="forceGoHome()">🏠</button>
+        </div>
+        <div id="gameSentenceContainer" class="sentence-container"></div>
+        <button id="nextBtn" class="btn-ui" onclick="nextQuestion()">Suivant ➜</button>
+    </div>
+
+    <!-- DEMO -->
+    <div id="demoScreen" class="screen">
+        <div class="absolute top-6 right-6">
+            <button class="btn-home-icon btn-ui" onclick="forceGoHome()">🏠</button>
+        </div>
+        <div class="absolute top-20 w-full text-center" style="z-index: 1000">
+            <div class="bg-blue-100 text-blue-800 px-6 py-3 rounded-full inline-block shadow-md text-xl font-bold" id="demoInstr">Regarde bien...</div>
+        </div>
+        <div id="demoSentenceContainer" class="sentence-container"></div>
+        <button id="demoEndBtn" class="btn-main absolute bottom-10 left-1/2 -translate-x-1/2 btn-ui" onclick="forceGoHome()">J'ai compris !</button>
+    </div>
+
+    <!-- RESULTATS -->
+    <div id="resultScreen" class="screen">
+        <div class="text-[120px] mb-4">🤖🏆</div>
+        <h2 class="text-6xl font-bold text-blue-600 mb-4">Bravo !</h2>
+        <p class="text-2xl text-gray-700 mb-10">Tu as réparé le robot !</p>
+        <button class="btn-main btn-ui" onclick="forceGoHome()">Menu Principal</button>
+    </div>
+
+    <!-- LEÇON -->
+    <div id="lessonScreen" class="screen">
+        <h2 class="text-3xl font-bold text-purple-700 mb-6">La leçon du Pluriel</h2>
+        <div class="w-[80%] aspect-video bg-black rounded-xl overflow-hidden shadow-2xl">
+            <iframe id="lessonFrame" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <button class="btn-main mt-8 btn-ui" onclick="forceGoHome()">Retour</button>
+    </div>
+
+    <script>
+        // --- BANQUES DE QUESTIONS ---
+        const lvl1Bank = [
+            { parts: [{text: "Les", type: "det"}, {text: "chats", root: "chat", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Des", type: "det"}, {text: "pommes", root: "pomme", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Mes", type: "det"}, {text: "amis", root: "ami", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Tes", type: "det"}, {text: "jouets", root: "jouet", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Ses", type: "det"}, {text: "mains", root: "main", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Les", type: "det"}, {text: "chiens", root: "chien", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Des", type: "det"}, {text: "arbres", root: "arbre", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Nos", type: "det"}, {text: "vélos", root: "vélo", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Vos", type: "det"}, {text: "cahiers", root: "cahier", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Les", type: "det"}, {text: "fleurs", root: "fleur", suffix: "s", type: "noun"}] }
+        ];
+
+        const lvl2Bank = [
+            { parts: [{text: "Les", type: "det"}, {text: "chats", root: "chat", suffix: "s", type: "noun"}, {text: "gris", root: "gri", suffix: "s", type: "adj"}] },
+            { parts: [{text: "Des", type: "det"}, {text: "jolies", root: "jolie", suffix: "s", type: "adj"}, {text: "fleurs", root: "fleur", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Ces", type: "det"}, {text: "petits", root: "petit", suffix: "s", type: "adj"}, {text: "chiens", root: "chien", suffix: "s", type: "noun"}] },
+            { parts: [{text: "Mes", type: "det"}, {text: "vieux", root: "vieux", suffix: "", type: "adj"}, {text: "livres", root: "livre", suffix: "s", type: "noun"}] }
+        ];
+        
+        const lvl3Bank = [
+            { parts: [{text: "Les", type: "det"}, {text: "lions", root: "lion", suffix: "s", type: "noun"}, {text: "mangent", type: "text"}, {text: "des", type: "det"}, {text: "steaks.", root: "steak", suffix: "s", type: "noun"}] }
+        ];
+
+        // --- ETAT ---
+        let currentLevel = 1, currentIdx = 0, isDemo = false;
+        let sessionQuestions = [];
+        let state = { totalDets: 0, foundDets: [], totalSuffixes: 0, foundSuffixes: [], linkedWords: [], bridges: [], paths: [] };
+        let isDrawing = false, currentPath = [];
+        let introTimer = 1.0;
+
+        // --- NAVIGATION ---
+        function showView(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-flex', 'active-block'));
+            const target = document.getElementById(id);
+            if(id === 'gameScreen') target.classList.add('active-block');
+            else target.classList.add('active-flex');
+
+            if(id === 'homeScreen') { 
+                introTimer = 1.0; particles = []; 
+                state.paths = []; state.bridges = [];
+                ctx.clearRect(0,0,canvas.width, canvas.height);
+            }
+            if(id === 'resultScreen') spawnVictoryConfetti(200);
+            
+            const frame = document.getElementById('lessonFrame');
+            frame.src = (id === 'lessonScreen') ? "https://lesfondamentaux.reseau-canope.fr:/embed/video/accord-en-nombre-determinant-nom-commun-15" : "";
+        }
+
+        function forceGoHome() {
+            window.speechSynthesis.cancel();
+            isDemo = false;
+            showView('homeScreen');
+        }
+
+        // --- ROBOT 3D ---
+        let scene, camera, renderer, robotGroup, wheel, jumpTimer = 0;
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('robotContainer').appendChild(renderer.domElement);
+            const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(5,10,5);
+            scene.add(light, new THREE.AmbientLight(0xffffff, 0.9));
+            robotGroup = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.7, 32, 32), new THREE.MeshPhongMaterial({color: 0x3b82f6}));
+            body.scale.set(1, 0.8, 1); body.position.y = 0.6;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), new THREE.MeshPhongMaterial({color: 0x60a5fa}));
+            head.position.y = 1.3;
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 32, 32), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            eyeL.position.set(-0.2, 1.4, 0.35);
+            const eyeR = eyeL.clone(); eyeR.position.x = 0.2;
+            wheel = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.1, 16, 32), new THREE.MeshPhongMaterial({color: 0x1f2937}));
+            wheel.rotation.y = Math.PI/2; wheel.position.y = 0.35;
+            robotGroup.add(body, head, eyeL, eyeR, wheel);
+            scene.add(robotGroup);
+            camera.position.set(0, 1, 10);
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(introTimer > 0) {
+                robotGroup.position.z = -30 + (30 * (1 - introTimer));
+                robotGroup.position.x = Math.sin(Date.now() * 0.005) * 5 * introTimer;
+                robotGroup.rotation.z = Math.sin(Date.now() * 0.005) * 0.2;
+                introTimer -= 0.005;
+            } else {
+                let tx = 4, ty = -1, sc = 1.3;
+                if(document.getElementById('gameScreen').classList.contains('active-block')) { tx = -5.5; ty = 2.5; sc = 0.8; }
+                if(document.getElementById('demoScreen').classList.contains('active-flex')) { tx = -12; ty = 5; }
+                robotGroup.position.x += (tx - robotGroup.position.x)*0.1;
+                robotGroup.position.y += (ty - robotGroup.position.y)*0.1;
+                robotGroup.scale.set(sc, sc, sc);
+            }
+            if(jumpTimer > 0) { robotGroup.position.y += Math.sin(jumpTimer * Math.PI)*0.1; jumpTimer -= 0.05; }
+            wheel.rotation.z -= 0.05;
+            renderer.render(scene, camera);
+        }
+        function robotJump() { jumpTimer = 1.0; }
+
+        // --- CONFETTIS ---
+        const cCanvas = document.getElementById('confettiCanvas');
+        const cCtx = cCanvas.getContext('2d');
+        let particles = [];
+        function spawnVictoryConfetti(count = 40, x, y) {
+            for(let i=0; i<count; i++) particles.push({
+                x: x || Math.random()*cCanvas.width, 
+                y: y || (x ? y : -20), 
+                vx: (Math.random()-0.5)*12, vy: x ? (Math.random()-0.8)*15 : Math.random()*5+5, 
+                life: 2.5, color: `hsl(${Math.random()*360},80%,50%)`
+            });
+        }
+        function updateConfetti() {
+            cCtx.clearRect(0,0,cCanvas.width, cCanvas.height);
+            particles = particles.filter(p=>p.life>0);
+            particles.forEach(p=>{
+                p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life-=0.015;
+                cCtx.fillStyle=p.color; cCtx.globalAlpha=Math.min(1, p.life);
+                cCtx.fillRect(p.x, p.y, 8, 8);
+            });
+            requestAnimationFrame(updateConfetti);
+        }
+
+        // --- JEU LOGIQUE ---
+        function startGame(lvl) {
+            currentLevel = lvl; currentIdx = 0; isDemo = false;
+            let bank = lvl === 1 ? lvl1Bank : (lvl === 2 ? lvl2Bank : lvl3Bank);
+            sessionQuestions = [...bank].sort(()=>0.5-Math.random()).slice(0, 10);
+            document.getElementById('lvlNumDisplay').innerText = lvl;
+            showView('gameScreen');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const data = sessionQuestions[currentIdx];
+            if(!data) { showView('resultScreen'); return; }
+            state = { totalDets: 0, foundDets: [], totalSuffixes: 0, foundSuffixes: [], linkedWords: [], bridges: [], paths: [] };
+            document.getElementById('progressText').innerText = `${currentIdx+1}/10`;
+            document.getElementById('nextBtn').style.display = 'none';
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            const cont = document.getElementById('gameSentenceContainer');
+            cont.innerHTML = '';
+            let wordIndex = 0;
+            data.parts.forEach(p => {
+                const el = document.createElement('span'); el.className = 'word';
+                if(p.type === 'det') {
+                    state.totalDets++;
+                    el.innerHTML = `<span class="target-zone det-zone" data-id="${wordIndex}">${p.text}</span>`;
+                    wordIndex++;
+                } else if(p.type === 'noun' || p.type === 'adj') {
+                    state.totalSuffixes++;
+                    let help = currentLevel === 1 ? 'suffix-helper' : '';
+                    el.innerHTML = `${p.root}<span class="target-zone suffix-zone ${help}" data-id="${wordIndex}" data-real="${p.suffix}">&nbsp;</span>`;
+                    wordIndex++;
+                } else { el.innerText = p.text; }
+                cont.appendChild(el);
+            });
+            updateInstruction();
+            resize();
+        }
+
+        function updateInstruction() {
+            const instr = document.getElementById('instruction');
+            if(state.foundDets.length < state.totalDets) instr.innerText = "Entoure les déterminants !";
+            else if(state.linkedWords.length < state.totalSuffixes) instr.innerText = "Relie les mots !";
+            else if(state.foundSuffixes.length < state.totalSuffixes) instr.innerText = "Entoure le pluriel !";
+            else { instr.innerText = "Parfait !"; document.getElementById('nextBtn').style.display = 'block'; }
+        }
+
+        // --- ANALYSE DESSIN (100% Manuel) ---
+        function analyze() {
+            if(isDemo || currentPath.length < 5) return;
+            const b = getBounds(currentPath);
+            const startP = currentPath[0], endP = currentPath[currentPath.length-1];
+            
+            // 1. Détection des Cercles (Déterminants)
+            if(state.foundDets.length < state.totalDets) {
+                document.querySelectorAll('.det-zone').forEach(d => {
+                    const id = parseInt(d.dataset.id);
+                    if(!state.foundDets.includes(id) && checkHit(b, d.getBoundingClientRect(), 35)) {
+                        state.foundDets.push(id);
+                        state.paths.push({rect: d.getBoundingClientRect(), color: '#16a34a'});
+                        d.classList.add('success-highlight'); robotJump();
+                        spawnVictoryConfetti(30, getCenter(d.getBoundingClientRect()).x, getCenter(d.getBoundingClientRect()).y);
+                        playBip();
+                    }
+                });
+            }
+
+            // 2. Détection des Ponts (Relier) - L'élève doit tracer le trait
+            if(state.foundDets.length > 0) {
+                let nodes = [];
+                document.querySelectorAll('.det-zone, .suffix-zone').forEach(el => nodes.push({id: parseInt(el.dataset.id), el: el, type: el.classList.contains('det-zone')?'det':'word'}));
+                nodes.sort((a,b)=>a.id-b.id);
+
+                nodes.forEach((dest, i) => {
+                    if(dest.type === 'word' && !state.linkedWords.includes(dest.id)) {
+                        let source = null;
+                        for(let j=i-1; j>=0; j--) {
+                            if((nodes[j].type==='det' && state.foundDets.includes(nodes[j].id)) || (nodes[j].type==='word' && state.linkedWords.includes(nodes[j].id))) {
+                                source = nodes[j]; break;
+                            }
+                        }
+                        if(source) {
+                            const r1 = source.el.getBoundingClientRect(), r2 = dest.el.getBoundingClientRect();
+                            const c1 = getCenter(r1), c2 = getCenter(r2);
+                            // On vérifie que le trait de l'élève relie bien les deux zones
+                            if((dist(startP, c1)<180 && dist(endP, c2)<180) || (dist(startP, c2)<180 && dist(endP, c1)<180)) {
+                                state.linkedWords.push(dest.id);
+                                state.bridges.push({from: c1, to: c2});
+                                playBip();
+                            }
+                        }
+                    }
+                });
+            }
+
+            // 3. Détection des Cercles (Suffixes)
+            if(state.linkedWords.length > 0) {
+                document.querySelectorAll('.suffix-zone').forEach(s => {
+                    const id = parseInt(s.dataset.id);
+                    // L'élève doit entourer la zone du suffixe
+                    if(!state.foundSuffixes.includes(id) && state.linkedWords.includes(id) && checkHit(b, s.getBoundingClientRect(), 35)) {
+                        state.foundSuffixes.push(id);
+                        state.paths.push({rect: s.getBoundingClientRect(), color: '#16a34a'});
+                        s.innerText = s.dataset.real; s.classList.add('suffix-revealed'); robotJump();
+                        spawnVictoryConfetti(30, getCenter(s.getBoundingClientRect()).x, getCenter(s.getBoundingClientRect()).y);
+                        playBip();
+                    }
+                });
+            }
+            updateInstruction(); redraw();
+        }
+
+        // --- DEMO ---
+        async function startDemo() {
+            isDemo = true; showView('demoScreen');
+            document.getElementById('demoEndBtn').style.display = 'none';
+            const cont = document.getElementById('demoSentenceContainer');
+            cont.innerHTML = `
+                <span class="word"><span class="target-zone d-det">Les</span></span>
+                <span class="word">chat<span class="target-zone d-suf1" style="color:transparent; border-bottom:3px dashed #ccc">s</span></span>
+            `;
+            const hand = document.getElementById('ghostHand');
+            const det = document.querySelector('.d-det'), suf = document.querySelector('.d-suf1');
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            state.paths = []; state.bridges = [];
+
+            hand.style.display = 'block';
+            document.getElementById('demoInstr').innerText = "1. Entoure le déterminant";
+            await moveHandTo(hand, det);
+            await drawFakeCircle(det.getBoundingClientRect());
+            state.paths.push({rect: det.getBoundingClientRect(), color: '#16a34a'}); redraw();
+            
+            document.getElementById('demoInstr').innerText = "2. Relie au mot";
+            let c1 = getCenter(det.getBoundingClientRect()), c2 = getCenter(suf.getBoundingClientRect());
+            await moveHandTo(hand, det);
+            await drawFakeLine(c1, c2, hand);
+            state.bridges.push({from: c1, to: c2}); redraw();
+
+            document.getElementById('demoInstr').innerText = "3. Entoure le pluriel";
+            await moveHandTo(hand, suf);
+            await drawFakeCircle(suf.getBoundingClientRect());
+            state.paths.push({rect: suf.getBoundingClientRect(), color: '#16a34a'});
+            suf.innerText = 's'; suf.classList.add('suffix-revealed'); redraw();
+            
+            document.getElementById('demoInstr').innerText = "C'est à toi !";
+            hand.style.display = 'none';
+            document.getElementById('demoEndBtn').style.display = 'block';
+        }
+
+        async function drawFakeCircle(rect) {
+            const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+            const rx = rect.width/2+15, ry = rect.height/2+15;
+            for(let a=0; a<=Math.PI*2.1; a+=0.3) {
+                ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, a);
+                ctx.strokeStyle = "#16a34a"; ctx.lineWidth = 4; ctx.stroke();
+                await sleep(40);
+            }
+        }
+        async function drawFakeLine(p1, p2, hand) {
+            for(let t=0; t<=1.01; t+=0.08) {
+                const x = p1.x + (p2.x-p1.x)*t, y = p1.y + (p2.y-p1.y)*t;
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y-20);
+                const mid = (p1.x + x)/2;
+                ctx.quadraticCurveTo(mid, Math.min(p1.y, y)-80*t, x, y-20);
+                ctx.strokeStyle = "#16a34a"; ctx.lineWidth = 5; ctx.stroke();
+                hand.style.left = x+'px'; hand.style.top = y+'px';
+                await sleep(30);
+            }
+        }
+
+        // --- UTILS ---
+        function moveHandTo(h, el) { const r = el.getBoundingClientRect(); h.style.transition = 'all 0.5s ease'; h.style.left = (r.left+r.width/2)+'px'; h.style.top = (r.top+r.height/2)+'px'; return sleep(600); }
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        function getCenter(r) { return {x: r.left+r.width/2, y: r.top+r.height/2}; }
+        function dist(a,b) { return Math.hypot(a.x-b.x, a.y-b.y); }
+        function checkHit(b, r, margin=30) { const c=getCenter(r); return c.x>b.l-margin && c.x<b.r+margin && c.y>b.t-margin && c.y<b.b+margin; }
+        function getBounds(p) { let l=1e9,t=1e9,r=-1e9,b=-1e9; p.forEach(pt=>{l=Math.min(l,pt.x);t=Math.min(t,pt.y);r=Math.max(r,pt.x);b=Math.max(b,pt.y)}); return {l,t,r,b}; }
+
+        // --- DESSIN CANVAS ---
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const getP = (e) => { const t = e.touches?e.touches[0]:e; return {x: t.clientX, y: t.clientY}; };
+        
+        function handleStart(e) {
+            if(isDemo) return;
+            const p = getP(e);
+            
+            // VERIFICATION CRITIQUE DES BOUTONS
+            const target = document.elementFromPoint(p.x, p.y);
+            if(target && (target.closest('.btn-ui') || target.closest('button'))) {
+                // Si c'est un bouton, on ne démarre pas le dessin
+                return;
+            }
+
+            isDrawing=true; currentPath=[p]; 
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('touchstart', handleStart);
+        
+        window.addEventListener('mousemove', (e) => {
+            if(!isDrawing) return; const p = getP(e); currentPath.push(p);
+            ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 3; ctx.beginPath();
+            ctx.moveTo(currentPath[currentPath.length-2].x, currentPath[currentPath.length-2].y);
+            ctx.lineTo(p.x, p.y); ctx.stroke();
+        });
+        
+        window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing=false; analyze(); currentPath=[]; redraw(); } });
+        window.addEventListener('touchend', (e) => { if(isDrawing) { isDrawing=false; analyze(); currentPath=[]; redraw(); } });
+
+        function redraw() {
+            ctx.clearRect(0,0,canvas.width, canvas.height);
+            state.bridges.forEach(b => {
+                ctx.beginPath(); ctx.moveTo(b.from.x, b.from.y-20);
+                const mid = (b.from.x+b.to.x)/2;
+                ctx.quadraticCurveTo(mid, Math.min(b.from.y, b.to.y)-100, b.to.x, b.to.y-20);
+                ctx.strokeStyle = "#16a34a"; ctx.lineWidth = 5; ctx.stroke();
+            });
+            state.paths.forEach(p => {
+                const r = p.rect; ctx.beginPath();
+                ctx.ellipse(r.left+r.width/2, r.top+r.height/2, r.width/2+15, r.height/2+15, 0, 0, Math.PI*2);
+                ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.stroke();
+            });
+        }
+
+        // --- AUDIO ---
+        function speakObjective() { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(document.getElementById('objectiveText').innerText); u.lang='fr-FR'; window.speechSynthesis.speak(u); }
+        function speakInstruction() { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance("Aide le robot à corriger les fautes d'orthographe en réalisant les balles d'accord"); u.lang='fr-FR'; window.speechSynthesis.speak(u); }
+        function playBip() { try { const a=new(window.AudioContext||window.webkitAudioContext)(); const o=a.createOscillator(); o.frequency.setValueAtTime(600,a.currentTime); const g=a.createGain(); g.gain.value=0.1; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+0.1); } catch(e){} }
+        
+        function nextQuestion() { currentIdx++; loadQuestion(); }
+        function resize() { 
+            canvas.width=window.innerWidth; canvas.height=window.innerHeight; 
+            cCanvas.width=canvas.width; cCanvas.height=canvas.height; 
+            if(renderer) renderer.setSize(canvas.width, canvas.height); 
+            if(camera) { camera.aspect=canvas.width/canvas.height; camera.updateProjectionMatrix(); } 
+            redraw(); 
+        }
+        
+        window.onresize = resize;
+        window.onload = () => { init3D(); resize(); updateConfetti(); };
+    </script>
+</body>
+</html>

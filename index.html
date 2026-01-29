@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Les balles rebondissantes</title>
+    <title>Le Rallye du Pluriel</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Andika&family=Fredoka+One&display=swap');
@@ -13,42 +12,75 @@
         body {
             font-family: 'Andika', sans-serif;
             overflow: hidden;
-            background: radial-gradient(circle, #e0f2fe 0%, #bae6fd 100%);
+            background: radial-gradient(circle, #f0fdf4 0%, #dcfce7 100%);
             margin: 0;
             touch-action: none;
+            width: 100vw;
+            height: 100vh;
         }
 
-        #canvas3d { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-        #drawingCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; cursor: crosshair; touch-action: none; }
-        .ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
+        #drawingCanvas { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 10; 
+            cursor: crosshair; 
+            touch-action: none;
+        }
+        
+        .ui-layer { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 50; 
+            pointer-events: none; 
+        }
+
         .clickable { pointer-events: auto !important; cursor: pointer; }
 
-        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
+        #robot-companion {
+            position: fixed;
+            font-size: 5rem;
+            z-index: 20;
+            pointer-events: none;
+            transition: all 1s ease-in-out;
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        .screen { display: none; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
         .screen.active { display: flex; }
 
         .btn-main {
-            background: #3b82f6; color: white; padding: 15px 40px;
-            border-radius: 20px; font-size: 1.4rem; font-weight: bold;
-            box-shadow: 0 6px 0 #1d4ed8; transition: transform 0.1s;
-            border: none; margin: 10px;
+            background: #16a34a; color: white; padding: 15px 40px;
+            border-radius: 20px; font-size: 1.5rem; font-weight: bold;
+            box-shadow: 0 6px 0 #15803d; transition: all 0.1s;
+            border: none;
         }
         .btn-main:active { transform: translateY(4px); box-shadow: none; }
-        .btn-purple { background: #8b5cf6; box-shadow: 0 6px 0 #5b21b6; }
-        .btn-yellow { background: #f59e0b; box-shadow: 0 6px 0 #b45309; }
 
         .sentence-container {
-            position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%);
-            width: 95%; display: flex; justify-content: center; align-items: baseline;
-            gap: 1.2rem; flex-wrap: wrap; pointer-events: none;
+            position: absolute; top: 55%; left: 50%;
+            transform: translate(-50%, -50%); width: 95%;
+            display: flex; justify-content: center; align-items: baseline;
+            gap: 1rem; flex-wrap: wrap; 
         }
-        .word { font-size: 3.5rem; color: #1e3a8a; position: relative; line-height: 1.8; user-select: none; }
-        .level-3 .word { font-size: 2.2rem; } 
+        .word { font-size: 3.2rem; color: #164e63; position: relative; line-height: 2; user-select: none; }
+        .level-3 .word { font-size: 2.3rem; } 
 
-        .target-zone { position: relative; padding: 0 2px; border-radius: 4px; display: inline-block; }
-        .suffix-zone { min-width: 0.5ch; display: inline-block; }
+        .target-zone { position: relative; padding: 0 4px; border-radius: 8px; display: inline-block; }
+        .suffix-zone { min-width: 0.8ch; display: inline-block; }
         
         .level-1 .suffix-zone:not(.revealed) { border-bottom: 3px dashed #94a3b8; color: transparent; }
-        .level-2 .suffix-zone:not(.revealed), .level-3 .suffix-zone:not(.revealed) { color: transparent; }
+        .level-2 .suffix-zone:not(.revealed), .level-3 .suffix-zone:not(.revealed) { color: transparent; border-bottom: none !important; }
         
         .revealed { color: #16a34a !important; font-weight: bold; border-bottom: none !important; animation: pop 0.4s ease-out; }
         .success-highlight { color: #16a34a !important; font-weight: bold; }
@@ -58,50 +90,23 @@
         .instruction-box {
             position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
             background: rgba(255,255,255,0.95); padding: 15px 30px; border-radius: 50px;
-            border: 4px solid #3b82f6; box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-            font-weight: bold; font-size: 1.5rem; color: #1e40af; pointer-events: auto;
-            display: flex; align-items: center; gap: 10px; text-align: center;
-        }
-
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 2000;
-            display: none; align-items: center; justify-content: center; pointer-events: auto;
-        }
-
-        #bip-label {
-            position: absolute; top: 15%; left: 15%; 
-            font-family: 'Fredoka One'; font-size: 3rem; color: #ef4444;
-            opacity: 0; transition: opacity 0.2s; pointer-events: none;
-            z-index: 30; transform: rotate(-15deg);
-        }
-
-        .btn-audio-small {
-            background: #fef08a; border: 2px solid #ca8a04; color: #854d0e;
-            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 3px 0 #ca8a04;
+            border: 5px solid #16a34a; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            font-weight: bold; font-size: 1.6rem; color: #14532d;
+            text-align: center; width: 85%; max-width: 700px;
         }
     </style>
 </head>
 <body>
 
-    <div id="canvas3d"></div>
+    <div id="robot-companion">🤖</div>
     <canvas id="drawingCanvas"></canvas>
-    <div id="bip-label">BIP !</div>
 
     <div class="ui-layer">
         <div id="homeScreen" class="screen active">
-            <h1 class="text-6xl font-bold text-blue-900 mb-6 text-center" style="font-family: 'Fredoka One'; text-shadow: 2px 2px #fff;">Les balles rebondissantes</h1>
+            <h1 class="text-6xl font-bold text-green-900 mb-12 text-center" style="font-family: 'Fredoka One'; text-shadow: 2px 2px #fff; pointer-events: none;">Le Rallye du Pluriel</h1>
             
-            <div class="bg-white/80 border-4 border-red-500 p-6 rounded-3xl max-w-xl text-center mb-8 pointer-events-auto shadow-xl">
-                <p class="text-2xl font-bold text-red-600 mb-2">🤖 UNITÉ W-4LL : ERREUR SYSTÈME</p>
-                <p class="text-xl text-blue-900 font-bold">Mes circuits d'accord sont déconnectés ! Relie les mots entre eux pour réparer le pluriel.</p>
-                <button class="btn-audio-small clickable mx-auto mt-4" onclick="speakObjective()">🔊</button>
-            </div>
-
-            <div class="flex flex-col gap-4 items-center">
-                <button class="btn-main btn-purple clickable" onclick="showModal('lessonModal')">📖 Leçon</button>
+            <div class="flex flex-col gap-6">
+                <button class="btn-main clickable bg-amber-500 shadow-amber-700 mb-4" onclick="showModal('lessonModal')">📖 Voir la leçon</button>
                 <div class="flex gap-4">
                     <button class="btn-main clickable" onclick="startGame(1)">Niveau 1</button>
                     <button class="btn-main clickable" onclick="startGame(2)">Niveau 2</button>
@@ -111,210 +116,144 @@
         </div>
 
         <div id="gameScreen" class="screen">
-            <div class="absolute top-6 left-6 pointer-events-auto">
-                <div class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold shadow-md">Niveau <span id="lvlNum">1</span></div>
-                <div class="bg-white border-2 border-blue-600 text-blue-600 px-4 py-1 rounded-full font-bold shadow-md mt-2 text-center"><span id="progressText">1/10</span></div>
-            </div>
-
-            <div class="instruction-box">
-                <span id="instruction">Entoure le déterminant</span>
-                <button class="btn-audio-small clickable ml-2" onclick="speakInstruction()">🔊</button>
-            </div>
-            
+            <div id="instruction" class="instruction-box">Entoure le déterminant</div>
+            <div id="progressText" class="absolute top-24 md:top-6 right-10 text-2xl font-bold text-green-900"></div>
             <div id="gameSentence" class="sentence-container"></div>
 
             <div class="absolute bottom-10 left-10 flex gap-4">
                 <button class="btn-main clickable bg-slate-600 shadow-slate-800" onclick="goHome()">🏠 Menu</button>
             </div>
 
-            <button id="nextBtn" class="btn-main clickable bg-emerald-500 shadow-emerald-700 absolute bottom-10 right-10 hidden" onclick="nextQuestion()">Suivant ➜</button>
+            <button id="nextBtn" class="btn-main clickable bg-blue-500 shadow-blue-700 absolute bottom-10 right-10 hidden" onclick="nextQuestion()">Phrase suivante ➜</button>
         </div>
     </div>
 
-    <!-- MODALES -->
-    <div id="lessonModal" class="modal">
+    <div id="lessonModal" class="fixed top-0 left-0 w-full h-full bg-black/80 z-[2000] hidden items-center justify-center pointer-events-auto">
         <div class="bg-white p-8 rounded-3xl w-11/12 max-w-4xl flex flex-col items-center">
-            <h2 class="text-3xl font-bold mb-4 text-blue-900">Leçon : Le pluriel</h2>
+            <h2 class="text-3xl font-bold mb-4 text-green-900">Leçon : L'accord dans le groupe nominal</h2>
             <div class="w-full aspect-video mb-6 bg-black rounded-xl overflow-hidden">
                 <iframe id="lessonIframe" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>
             </div>
-            <button class="btn-main clickable" onclick="closeModal('lessonModal')">Fermer</button>
+            <button class="btn-main clickable" onclick="closeModal('lessonModal')">J'ai compris !</button>
         </div>
     </div>
 
     <script>
-        // --- DONNÉES GÉNÉRATEUR ---
-        function parsePhrase(str) {
-            const words = str.split(' ');
-            const result = [];
-            let lastTargetIdx = -1;
-
-            words.forEach((w, i) => {
-                const low = w.toLowerCase().replace(/[.,!]/g, '');
-                if(["les","des","mes","tes","ses","nos","vos","leurs"].includes(low)) {
-                    result.push({t:w, type:'det', idx: i});
-                    lastTargetIdx = i;
-                } else if((low.endsWith('s') || low.endsWith('x')) && lastTargetIdx !== -1) {
-                    result.push({
-                        t:w, 
-                        root: w.slice(0,-1), 
-                        s: w.slice(-1), 
-                        type:'target', 
-                        idx: i,
-                        linkedTo: -1 // Sera défini par la chaîne
-                    });
-                } else {
-                    result.push({t:w, type:'txt', idx: i});
-                }
-            });
-
-            // Établir la chaîne de pontage
-            let prevIdx = -1;
-            result.forEach(item => {
-                if(item.type === 'det') {
-                    prevIdx = item.idx;
-                } else if(item.type === 'target') {
-                    item.linkedTo = prevIdx;
-                    prevIdx = item.idx;
-                }
-            });
-
-            return { p: result };
-        }
+        // Mots à ignorer (invariables qui finissent par s/x)
+        const invariables = ["dans", "vers", "sous", "sans", "mais", "puis", "alors", "toujours", "plus", "bas", "souvent", "depuis", "très", "après", "pas"];
 
         const rawData = {
             1: ["Les chats", "Des chiens", "Mes stylos", "Tes livres", "Ses amis", "Nos jeux", "Vos mains", "Leurs vélos", "Les pommes", "Des ballons"],
-            2: ["Les petits chats", "Des grands chiens", "Mes nouveaux stylos", "Tes jolis livres", "Ses meilleurs amis", "Nos vieux jeux", "Vos blanches mains", "Leurs beaux vélos", "Les rouges pommes", "Des énormes ballons"],
+            2: ["Les petits chats", "Des grands chiens", "Mes nouveaux stylos", "Tes jolis livres", "Ses meilleurs amis", "Nos vieux jeux", "Vos blanches mains", "Leurs beaux vélos"],
             3: [
-                "Les chats noirs dorment", "Des petits chiens mangent", "Les enfants calmes jouent", 
-                "Mes parents contents arrivent", "Ses frères sportifs courent", "Nos vieux vélos roulent", 
-                "Vos jolies fleurs poussent", "Leurs grands sacs pèsent", "Les profs attentifs aident", 
-                "Des lions féroces chassent"
+                "Les chats noirs dorment dans des paniers", 
+                "Des chiens gourmands mangent toujours des gros os", 
+                "Les enfants joyeux jouent sous les arbres", 
+                "Mes parents achètent des fruits frais vers midi", 
+                "Ses frères sportifs lisent des petits livres",
+                "Les belles fleurs rouges décorent les jardins",
+                "Des énormes camions bleus bloquent les routes sans arrêt",
+                "Tes vieux habits sales traînent dans les chambres",
+                "Leurs meilleurs amis fidèles arrivent ce soir",
+                "Nos petites sœurs attentives écoutent des histoires",
+                "Vos grands ballons colorés volent dans les airs",
+                "Des nouveaux élèves sérieux travaillent beaucoup",
+                "Les jolis petits oiseaux chantent dans les bois",
+                "Des mauvaises herbes sèches poussent partout sous la pluie",
+                "Mes chers cousins lointains écrivent des lettres depuis longtemps"
+                "Des crayons cassés traînent sur la table de travail."
+                "Les élèves curieux posent des questions intéressantes."
+                "Des affiches colorées décorent les murs de la classe."
+               "Les frères jumeaux regardent un dessin animé drôle"
+                "Des étoiles brillantes illuminent le ciel nocturne."
+               "Les parents attentifs écoutent la maîtresse de la classe."
+                "Des chaussures mouillées sèchent près de la porte d’entrée."
+                "Des poissons colorés nagent dans le grand aquarium."
+                "Des nuages sombres cachent le soleil d’été."
+                "Les élèves attentifs lisent une histoire passionnante."
+                "Des feuilles mortes recouvrent le sol humide."
+                "Les joueurs fatigués quittent le terrain boueux."
+                "Mes cousins visitent le musée de la ville."
+                "Des cadeaux emballés attendent sous le sapin décoré."
             ]
         };
 
-        let levelData = {};
-        Object.keys(rawData).forEach(k => levelData[k] = rawData[k].map(parsePhrase));
-
         let currentLevel = 1, currentIdx = 0, levelQueue = [];
-        let progress = { det: null, bridges: [], suffixes: [] };
+        let progress = { dets: [], bridges: [], suffixes: [] };
         let isDrawing = false, points = [];
         let screenMode = 'home';
 
-        // --- AUDIO ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playBip() {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.type = 'square'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
-        }
-        
-        function speakObjective() {
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance("Bip ! Aide-moi ! Relie le déterminant aux mots qui suivent pour accorder le pluriel !");
-            u.lang = 'fr-FR'; window.speechSynthesis.speak(u);
-        }
-        function speakInstruction() {
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(document.getElementById('instruction').innerText);
-            u.lang = 'fr-FR'; window.speechSynthesis.speak(u);
-        }
+        const robot = document.getElementById('robot-companion');
+        const drawingCanvas = document.getElementById('drawingCanvas');
+        const ctx = drawingCanvas.getContext('2d');
 
-        // --- ROBOT 3D (Identique au précédent) ---
-        let scene, camera, renderer, robotGroup, jumpForce = 0, arrivalPhase = 0;
-        function initRobot() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.getElementById('canvas3d').appendChild(renderer.domElement);
-            scene.add(new THREE.DirectionalLight(0xffffff, 1.5), new THREE.AmbientLight(0x808080));
-            robotGroup = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 0.8), new THREE.MeshPhongMaterial({color: 0x8e8e8e}));
-            robotGroup.add(body);
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 0.2), new THREE.MeshPhongMaterial({color: 0x8e8e8e}));
-            head.position.y = 0.85; robotGroup.add(head);
-            const eyeMat = new THREE.MeshBasicMaterial({color: 0x00ffff});
-            const eL = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 0.15), eyeMat); eL.position.set(0.2, 0.85, 0.11);
-            const eR = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 0.15), eyeMat); eR.position.set(-0.2, 0.85, 0.11);
-            robotGroup.add(eL, eR);
-            const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1, 16, 32), new THREE.MeshPhongMaterial({color: 0x1f2937}));
-            wheel.rotation.y = Math.PI/2; wheel.position.y = -0.6;
-            robotGroup.add(wheel);
-            scene.add(robotGroup);
-            camera.position.z = 25; robotGroup.position.z = -40;
-            animate();
-        }
+        function parseSentence(str) {
+            const parts = str.split(' ');
+            let lastDetIdx = -1;
+            let currentGN = [];
 
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now() * 0.001;
-            if(robotGroup) {
-                if(screenMode === 'home') {
-                    if(arrivalPhase === 0) {
-                        camera.position.z = THREE.MathUtils.lerp(camera.position.z, 6.5, 0.03);
-                        robotGroup.position.z = THREE.MathUtils.lerp(robotGroup.position.z, 0, 0.03);
-                        robotGroup.position.x = Math.sin(time * 8) * 2.5;
-                        if(robotGroup.position.z > -0.5) arrivalPhase = 1;
-                    } else if(arrivalPhase === 1) {
-                        robotGroup.position.x = THREE.MathUtils.lerp(robotGroup.position.x, -3.5, 0.08);
-                        if(Math.abs(robotGroup.position.x + 3.5) < 0.1) arrivalPhase = 2;
-                    } else {
-                        robotGroup.position.x = -3.5;
-                        robotGroup.position.y = Math.sin(time * 2) * 0.05;
-                    }
-                } else {
-                    robotGroup.position.set(-4.5, 3.2, 0);
-                    robotGroup.scale.set(0.5, 0.5, 0.5);
+            const parsed = parts.map((w, i) => {
+                const clean = w.toLowerCase().replace(/[.,!]/g, '');
+                
+                // Détection déterminant pluriel
+                if(["les","des","mes","tes","ses","nos","vos","leurs","ces"].includes(clean)) {
+                    lastDetIdx = i;
+                    currentGN = [i];
+                    return {t:w, type:'det', id: i};
                 }
-                if(jumpForce > 0.01) {
-                    robotGroup.position.y += Math.abs(Math.sin(time * 15)) * jumpForce;
-                    jumpForce *= 0.94;
+                
+                // Détection accord (Nom/Adj)
+                // Condition : doit finir par s/x, ne pas être invariable, et suivre un déterminant
+                if(lastDetIdx !== -1 && (clean.endsWith('s') || clean.endsWith('x')) && !invariables.includes(clean) && clean !== "os" && clean !== "aux") {
+                    const obj = {t:w, root: w.slice(0,-1), s: w.slice(-1), type:'adj_noun', linkedTo: lastDetIdx, id: i};
+                    currentGN.push(i);
+                    return obj;
                 }
-            }
-            renderer.render(scene, camera);
+                
+                // Si on croise un mot qui casse le GN (verbe, préposition, etc.)
+                if(lastDetIdx !== -1 && !clean.endsWith('s') && !clean.endsWith('x') && clean !== "et") {
+                    // On ne réinitialise pas forcément pour permettre Adj + Nom (ex: petits chats)
+                    // Mais on marque que ce mot n'est pas une cible
+                }
+
+                return {t:w, type:'txt', id: i};
+            });
+
+            return { p: parsed };
         }
 
-        function triggerSuccess() {
-            jumpForce = 0.8; playBip();
-            const bip = document.getElementById('bip-label');
-            bip.style.opacity = 1;
-            confetti({ particleCount: 30, spread: 50, origin: { x: 0.15, y: 0.3 } });
-            setTimeout(() => bip.style.opacity = 0, 800);
-        }
-
-        // --- LOGIQUE JEU ---
         function startGame(lvl) {
             screenMode = 'game';
             currentLevel = lvl;
-            levelQueue = [...levelData[lvl]].sort(() => Math.random() - 0.5).slice(0, 10);
+            levelQueue = [...rawData[lvl]]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 10)
+                .map(s => parseSentence(s));
+            
             currentIdx = 0;
             document.getElementById('homeScreen').classList.remove('active');
-            document.getElementById('gameScreen').classList.add('active');
-            document.getElementById('lvlNum').innerText = lvl;
+            const gScreen = document.getElementById('gameScreen');
+            gScreen.classList.add('active');
+            gScreen.className = `screen active level-${lvl}`;
+            updateRobotPosition();
             loadQuestion();
         }
 
         function loadQuestion() {
             const data = levelQueue[currentIdx];
-            progress = { det: null, bridges: [], suffixes: [] };
-            document.getElementById('progressText').innerText = `${currentIdx+1}/10`;
+            progress = { dets: [], bridges: [], suffixes: [] };
+            document.getElementById('progressText').innerText = `Phrase ${currentIdx+1}/10`;
             const cont = document.getElementById('gameSentence');
             cont.innerHTML = '';
             
-            data.p.forEach((p) => {
+            data.p.forEach((p, i) => {
                 const span = document.createElement('span');
                 span.className = 'word';
                 if(p.type === 'det') {
-                    span.innerHTML = `<span class="target-zone det" data-idx="${p.idx}">${p.t}</span>`;
-                } else if(p.type === 'target') {
-                    let mk = (currentLevel === 1) ? "_" : "&nbsp;";
-                    span.innerHTML = `${p.root}<span class="target-zone suffix suffix-zone" data-idx="${p.idx}" data-val="${p.s}">${mk}</span>`;
+                    span.innerHTML = `<span class="target-zone det" data-idx="${i}">${p.t}</span>`;
+                } else if(p.type === 'adj_noun') {
+                    let placeholder = (currentLevel === 1) ? "_" : " ";
+                    span.innerHTML = `${p.root}<span class="target-zone suffix suffix-zone" data-idx="${i}" data-val="${p.s}">${placeholder}</span>`;
                 } else {
                     span.innerText = p.t;
                 }
@@ -328,34 +267,45 @@
         function updateInstruction() {
             const instr = document.getElementById('instruction');
             const data = levelQueue[currentIdx];
-            const targets = data.p.filter(p => p.type === 'target');
+            const dets = data.p.filter(p => p.type === 'det');
+            const suffixes = data.p.filter(p => p.type === 'adj_noun');
 
-            if(!progress.det) { instr.innerText = "Entoure le déterminant"; return; }
-            
-            for(let t of targets) {
-                if(!progress.bridges.includes(String(t.idx))) {
-                    instr.innerText = `Fais un pont vers "${t.root}"`;
-                    return;
+            if(currentLevel === 3) {
+                if(progress.dets.length === dets.length && progress.bridges.length === suffixes.length && progress.suffixes.length === suffixes.length) {
+                    instr.innerText = "Parfait ! C'est gagné !";
+                    document.getElementById('nextBtn').classList.remove('hidden');
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                } else {
+                    instr.innerText = "À toi de jouer ! Accorde tout le monde.";
                 }
-                if(!progress.suffixes.includes(String(t.idx))) {
-                    instr.innerText = `Entoure la marque du pluriel de "${t.root}"`;
-                    return;
-                }
+                return;
             }
 
-            instr.innerText = "Parfait ! La chaîne est complète.";
-            document.getElementById('nextBtn').classList.remove('hidden');
+            if(progress.dets.length < dets.length) {
+                instr.innerText = "Étape 1 : Entoure le déterminant";
+            } else if(progress.bridges.length < suffixes.length || progress.suffixes.length < suffixes.length) {
+                instr.innerText = "Étape 2 : Fais les ponts et entoure les marques (s/x)";
+            } else {
+                instr.innerText = "Bravo ! Tu as fini la phrase.";
+                document.getElementById('nextBtn').classList.remove('hidden');
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
         }
 
-        // --- DESSIN ---
-        const drawingCanvas = document.getElementById('drawingCanvas');
-        const ctx = drawingCanvas.getContext('2d');
+        function updateRobotPosition() {
+            if(screenMode === 'home') {
+                robot.style.top = '15%'; robot.style.left = '80%';
+            } else {
+                robot.style.top = '8%'; robot.style.left = '5%';
+            }
+        }
 
         function handleStart(e) {
+            if (screenMode !== 'game') return;
+            isDrawing = true;
             const x = e.touches ? e.touches[0].clientX : e.clientX;
             const y = e.touches ? e.touches[0].clientY : e.clientY;
-            if(document.elementFromPoint(x,y)?.classList.contains('clickable')) return;
-            isDrawing = true; points = [{x, y}];
+            points = [{x, y}];
         }
 
         function handleMove(e) {
@@ -363,12 +313,16 @@
             const x = e.touches ? e.touches[0].clientX : e.clientX;
             const y = e.touches ? e.touches[0].clientY : e.clientY;
             points.push({x, y});
+            
             redrawAll();
-            ctx.strokeStyle = 'rgba(120, 120, 120, 0.5)';
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+            ctx.strokeStyle = '#94a3b8'; 
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
             for(let i=1; i<points.length; i++) ctx.lineTo(points[i].x, points[i].y);
             ctx.stroke();
+            ctx.setLineDash([]);
         }
 
         function handleEnd() {
@@ -385,66 +339,84 @@
             const mid = { x: (bounds.minX + bounds.maxX)/2, y: (bounds.minY + bounds.maxY)/2 };
             const data = levelQueue[currentIdx];
 
-            // 1. Entourage Déterminant
-            if(!progress.det) {
-                const detEl = document.querySelector('.det');
-                if(isInside(mid, detEl.getBoundingClientRect())) {
-                    progress.det = detEl.dataset.idx;
-                    detEl.classList.add('done', 'success-highlight');
-                    updateInstruction(); return;
+            // 1. Déterminant
+            const targetDet = Array.from(document.querySelectorAll('.det')).find(el => !progress.dets.includes(el.dataset.idx));
+            if(targetDet && isInside(mid, targetDet.getBoundingClientRect())) {
+                progress.dets.push(targetDet.dataset.idx);
+                targetDet.classList.add('success-highlight');
+                return updateInstruction();
+            }
+
+            // 2. Accords
+            const suffixes = Array.from(document.querySelectorAll('.suffix'));
+            
+            const suffixToCircle = suffixes.find(el => !progress.suffixes.includes(el.dataset.idx));
+            if(suffixToCircle) {
+                const tIdx = parseInt(suffixToCircle.dataset.idx);
+                const detIdx = data.p[tIdx].linkedTo;
+                if(progress.dets.includes(String(detIdx)) && isInside(mid, suffixToCircle.getBoundingClientRect())) {
+                    progress.suffixes.push(suffixToCircle.dataset.idx);
+                    suffixToCircle.classList.add('revealed');
+                    suffixToCircle.innerText = suffixToCircle.dataset.val;
+                    return updateInstruction();
                 }
             }
 
-            // 2. Pontage
-            if(progress.det) {
-                const nextBridgeTarget = data.p.find(p => p.type === 'target' && !progress.bridges.includes(String(p.idx)));
-                if(nextBridgeTarget) {
-                    const sourceIdx = nextBridgeTarget.linkedTo;
-                    const sourceEl = document.querySelector(`[data-idx="${sourceIdx}"]`);
-                    const targetEl = document.querySelector(`[data-idx="${nextBridgeTarget.idx}"]`).closest('.word');
+            const suffixToBridge = suffixes.find(el => !progress.bridges.some(b => b.to === el.dataset.idx));
+            if(suffixToBridge) {
+                const tIdx = parseInt(suffixToBridge.dataset.idx);
+                const detIdx = data.p[tIdx].linkedTo;
+                if(progress.dets.includes(String(detIdx))) {
+                    let sIdx = detIdx;
+                    const chain = data.p.map((p,i)=>({...p, i})).filter(p => p.linkedTo === detIdx || p.i === detIdx);
+                    const myPos = chain.findIndex(g => g.i === tIdx);
+                    if(myPos > 0) sIdx = chain[myPos-1].i;
 
-                    if(dist(points[0], sourceEl.getBoundingClientRect()) < 120 && dist(points[points.length-1], targetEl.getBoundingClientRect()) < 120) {
-                        progress.bridges.push(String(nextBridgeTarget.idx));
-                        updateInstruction(); return;
+                    const startEl = document.querySelector(`[data-idx="${sIdx}"]`);
+                    const startRect = startEl.getBoundingClientRect();
+                    const endRect = suffixToBridge.closest('.word').getBoundingClientRect();
+                    
+                    if(dist(points[0], startRect) < 150 && dist(points[points.length-1], endRect) < 150) {
+                        progress.bridges.push({from: String(sIdx), to: suffixToBridge.dataset.idx});
+                        return updateInstruction();
                     }
-                }
-            }
-
-            // 3. Entourage Pluriel
-            const nextSuffixTarget = data.p.find(p => p.type === 'target' && progress.bridges.includes(String(p.idx)) && !progress.suffixes.includes(String(p.idx)));
-            if(nextSuffixTarget) {
-                const sufEl = document.querySelector(`.suffix[data-idx="${nextSuffixTarget.idx}"]`);
-                if(isInside(mid, sufEl.getBoundingClientRect())) {
-                    progress.suffixes.push(String(nextSuffixTarget.idx));
-                    sufEl.innerText = sufEl.dataset.val;
-                    sufEl.classList.add('revealed');
-                    triggerSuccess();
-                    updateInstruction(); return;
                 }
             }
         }
 
         function redrawAll() {
             ctx.clearRect(0,0,drawingCanvas.width, drawingCanvas.height);
-            ctx.lineWidth = 5; ctx.strokeStyle = '#16a34a'; ctx.lineCap = 'round';
+            ctx.lineWidth = 5; ctx.strokeStyle = '#16a34a'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-            // Cercles
-            document.querySelectorAll('.done, .revealed').forEach(el => {
-                const r = el.getBoundingClientRect();
-                const pad = el.classList.contains('suffix') ? 12 : 18;
-                ctx.beginPath();
-                ctx.ellipse(r.left + r.width/2, r.top + r.height/2, (r.width/2) + pad, (r.height/2) + pad, 0, 0, Math.PI*2);
-                ctx.stroke();
+            progress.dets.forEach(idx => {
+                const el = document.querySelector(`.det[data-idx="${idx}"]`);
+                if(el) {
+                    const r = el.getBoundingClientRect();
+                    ctx.beginPath();
+                    ctx.ellipse(r.left + r.width/2, r.top + r.height/2, (r.width/2) + 20, (r.height/2) + 15, 0, 0, Math.PI*2);
+                    ctx.stroke();
+                }
             });
 
-            // Ponts
-            progress.bridges.forEach(idx => {
-                const targetNode = levelQueue[currentIdx].p.find(p => p.idx == idx);
-                const startEl = document.querySelector(`[data-idx="${targetNode.linkedTo}"]`).getBoundingClientRect();
-                const endEl = document.querySelector(`[data-idx="${idx}"]`).getBoundingClientRect();
+            progress.suffixes.forEach(idx => {
+                const el = document.querySelector(`.suffix[data-idx="${idx}"]`);
+                if(el) {
+                    const r = el.getBoundingClientRect();
+                    ctx.beginPath();
+                    ctx.ellipse(r.left + r.width/2, r.top + r.height/2, 35, 30, 0, 0, Math.PI*2);
+                    ctx.stroke();
+                }
+            });
+
+            progress.bridges.forEach(b => {
+                const startEl = document.querySelector(`[data-idx="${b.from}"]`);
+                const endEl = document.querySelector(`[data-idx="${b.to}"]`);
+                if(!startEl || !endEl) return;
+                const start = startEl.getBoundingClientRect();
+                const end = endEl.getBoundingClientRect();
                 ctx.beginPath();
-                ctx.moveTo(startEl.left + startEl.width/2, startEl.top);
-                ctx.quadraticCurveTo((startEl.right + endEl.left)/2, Math.min(startEl.top, endEl.top) - 60, endEl.left + endEl.width/2, endEl.top);
+                ctx.moveTo(start.left + start.width/2, start.top);
+                ctx.quadraticCurveTo((start.left + end.left)/2, Math.min(start.top, end.top) - 70, end.left + end.width/2, end.top);
                 ctx.stroke();
             });
         }
@@ -454,38 +426,52 @@
             pts.forEach(p=>{ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
             return {minX, minY, maxX, maxY};
         }
-        function isInside(p, r) { return p.x > r.left-40 && p.x < r.right+40 && p.y > r.top-40 && p.y < r.bottom+40; }
+        function isInside(p, r) { return p.x > r.left-30 && p.x < r.right+30 && p.y > r.top-30 && p.y < r.bottom+30; }
         function dist(p, r) { const cx=r.left+r.width/2, cy=r.top+r.height/2; return Math.hypot(p.x-cx, p.y-cy); }
 
-        function showModal(id) {
-            document.getElementById(id).style.display = 'flex';
-            if(id === 'lessonModal') document.getElementById('lessonIframe').src = "https://lesfondamentaux.reseau-canope.fr:/embed/video/accord-en-nombre-determinant-nom-commun-15";
+        function showModal(id) { 
+            document.getElementById(id).style.display = 'flex'; 
+            if(id === 'lessonModal') document.getElementById('lessonIframe').src = "https://lesfondamentaux.reseau-canope.fr:/embed/video/accord-en-nombre-determinant-nom-commun-15"; 
         }
-        function closeModal(id) {
-            document.getElementById(id).style.display = 'none';
-            if(id === 'lessonModal') document.getElementById('lessonIframe').src = "";
+        function closeModal(id) { 
+            document.getElementById(id).style.display = 'none'; 
+            document.getElementById('lessonIframe').src = ""; 
         }
-        function goHome() {
-            screenMode = 'home'; arrivalPhase = 0; camera.position.z = 25; robotGroup.position.z = -40;
-            document.getElementById('gameScreen').classList.remove('active');
-            document.getElementById('homeScreen').classList.add('active');
+        
+        function goHome() { 
+            screenMode = 'home'; 
+            document.getElementById('gameScreen').classList.remove('active'); 
+            document.getElementById('homeScreen').classList.add('active'); 
+            updateRobotPosition();
             ctx.clearRect(0,0,drawingCanvas.width, drawingCanvas.height);
         }
-        function nextQuestion() {
-            currentIdx++;
-            if(currentIdx >= levelQueue.length) goHome();
-            else loadQuestion();
+        
+        function nextQuestion() { 
+            currentIdx++; 
+            if(currentIdx >= levelQueue.length) {
+                confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+                setTimeout(goHome, 2000);
+            } else loadQuestion(); 
         }
 
-        window.addEventListener('resize', () => { drawingCanvas.width = window.innerWidth; drawingCanvas.height = window.innerHeight; renderer.setSize(window.innerWidth, window.innerHeight); });
+        window.onload = () => { 
+            drawingCanvas.width = window.innerWidth; 
+            drawingCanvas.height = window.innerHeight; 
+            updateRobotPosition();
+        };
+        window.onresize = () => { 
+            drawingCanvas.width = window.innerWidth; 
+            drawingCanvas.height = window.innerHeight; 
+        };
+
         drawingCanvas.addEventListener('mousedown', handleStart);
         drawingCanvas.addEventListener('mousemove', handleMove);
         window.addEventListener('mouseup', handleEnd);
-        drawingCanvas.addEventListener('touchstart', handleStart);
-        drawingCanvas.addEventListener('touchmove', handleMove);
+        
+        drawingCanvas.addEventListener('touchstart', (e) => { handleStart(e); }, {passive: false});
+        drawingCanvas.addEventListener('touchmove', (e) => { if(isDrawing) { e.preventDefault(); handleMove(e); } }, {passive: false});
         window.addEventListener('touchend', handleEnd);
-
-        window.onload = () => { initRobot(); drawingCanvas.width = window.innerWidth; drawingCanvas.height = window.innerHeight; };
     </script>
 </body>
 </html>
+
